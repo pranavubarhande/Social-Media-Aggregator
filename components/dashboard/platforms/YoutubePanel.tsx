@@ -1,48 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Youtube } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import { useDisconnectYouTube, useYouTubeAnalytics } from "@/hooks/youtube.hooks";
+import { YouTubeAnalyticsRow } from "@/services/youtube.service";
 
 export default function YoutubePanel() {
-  type YouTubeAnalyticsRow = [string, string];
-  interface YouTubeAnalyticsData {
-    channel?: {
-      snippet?: { title?: string };
-      statistics?: {
-        subscriberCount?: string;
-        viewCount?: string;
-        videoCount?: string;
-      };
-    };
-    analytics?: {
-      rows?: YouTubeAnalyticsRow[];
-    };
-  }
-
-  const [isYouTubeConnected, setIsYouTubeConnected] = useState(false);
-  const [youtubeData, setYoutubeData] = useState<YouTubeAnalyticsData | null>(null);
+  const { data: youtubeData, isPending, isSuccess, refetch } = useYouTubeAnalytics();
+  const disconnectMutation = useDisconnectYouTube();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const searchParams = useSearchParams();
-
-  // initial fetch
-  useEffect(() => {
-    const checkYouTubeConnection = async () => {
-      try {
-        const response = await axios.get("/api/youtube/analytics");
-        setIsYouTubeConnected(true);
-        setYoutubeData(response.data as YouTubeAnalyticsData);
-      } catch {
-        setIsYouTubeConnected(false);
-      }
-    };
-
-    checkYouTubeConnection();
-  }, []);
 
   // react to URL params after OAuth callback
   useEffect(() => {
@@ -56,17 +27,9 @@ export default function YoutubePanel() {
       );
     } else if (connected === "youtube") {
       // refresh data after successful connection
-      (async () => {
-        try {
-          const response = await axios.get("/api/youtube/analytics");
-          setIsYouTubeConnected(true);
-          setYoutubeData(response.data as YouTubeAnalyticsData);
-        } catch {
-          setIsYouTubeConnected(false);
-        }
-      })();
+      refetch();
     }
-  }, [searchParams]);
+  }, [searchParams, refetch]);
 
   const handleConnectYouTube = () => {
     setLoading(true);
@@ -77,15 +40,15 @@ export default function YoutubePanel() {
   const handleDisconnectYouTube = async () => {
     try {
       setLoading(true);
-      await axios.post("/api/youtube/disconnect");
-      setIsYouTubeConnected(false);
-      setYoutubeData(null);
+      await disconnectMutation.mutateAsync();
     } catch {
       setError("Failed to disconnect YouTube account");
     } finally {
       setLoading(false);
     }
   };
+
+  const isYouTubeConnected = isSuccess;
 
   return (
     <Card className="p-6 mb-6">
@@ -97,10 +60,14 @@ export default function YoutubePanel() {
 
         <Button
           onClick={isYouTubeConnected ? handleDisconnectYouTube : handleConnectYouTube}
-          disabled={loading}
+          disabled={loading || isPending || disconnectMutation.isPending}
           variant={isYouTubeConnected ? "outline" : "default"}
         >
-          {loading ? "Processing..." : isYouTubeConnected ? "Disconnect YouTube" : "Connect YouTube"}
+          {loading || isPending || disconnectMutation.isPending
+            ? "Processing..."
+            : isYouTubeConnected
+            ? "Disconnect YouTube"
+            : "Connect YouTube"}
         </Button>
       </div>
 
@@ -148,3 +115,4 @@ export default function YoutubePanel() {
     </Card>
   );
 }
+
