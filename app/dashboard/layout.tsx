@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { supabaseBrowserClient } from '@/providers/supabase/client';
+import { SelectedPlatformProvider } from '@/contexts/selected-platform-context';
 
 export default function DashboardLayout({
   children,
@@ -41,7 +42,9 @@ export default function DashboardLayout({
         <div className="mb-8">
           <PlatformSelector value={selectedPlatform} onChange={setSelectedPlatform} />
         </div>
-        <main>{children}</main>
+        <SelectedPlatformProvider value={{ selectedPlatform, setSelectedPlatform }}>
+          <main>{children}</main>
+        </SelectedPlatformProvider>
       </div>
     </div>
   );
